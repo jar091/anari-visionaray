@@ -313,7 +313,7 @@ inline void shade(ScreenSample &ss, const Ray &ray, RayType rayType, unsigned wo
 
     if (rendererState.renderMode == RenderMode::Default) {
       vec3 lightDir = normalize(lightSample.dir);
-      const float NdotL = fmaxf(0.f,dot(sn,lightDir));
+      const float NdotL = length(sn) > 1e-4f ? fmaxf(0.f,dot(sn,lightDir)) : 1.f;
 
       bool prevBSDFSAmpleWasSpecular = bsdfSample.isSpecular;
       float bsdfPDF = 0.f;
