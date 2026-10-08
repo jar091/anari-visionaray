@@ -5,7 +5,7 @@
 // subtypes
 #include "BezierCurve.h"
 #include "Cone.h"
-//#include "Curve.h"
+#include "Curve.h"
 #include "Cylinder.h"
 #include "ISOSurface.h"
 #include "Quad.h"
@@ -35,8 +35,8 @@ Geometry *Geometry::createInstance(
     return new BezierCurve(s);
   if (subtype == "cone")
     return new Cone(s);
-//  else if (subtype == "curve")
-//    return new Curve(s);
+  else if (subtype == "curve")
+    return new Curve(s);
   else if (subtype == "cylinder")
     return new Cylinder(s);
   else if (subtype == "isosurface")

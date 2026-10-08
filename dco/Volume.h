@@ -27,6 +27,10 @@ VSNRAY_FUNC
 inline float4 postClassify(TransferFunction1D tf, float v) {
   box1 valueRange = tf.valueRange;
   v = (v - valueRange.min) / (valueRange.max - valueRange.min);
+  // The first and the last entry are at the ends of the value range, while
+  // the texels of the lookup texture are centered.
+  const float n = float(tf.numValues);
+  v = (v * (n - 1.f) + 0.5f) / n;
   return tex1D(tf.sampler, v);
 }
 

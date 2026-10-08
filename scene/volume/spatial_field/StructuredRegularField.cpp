@@ -34,8 +34,11 @@ void StructuredRegularField::finalize()
   m_dims = uint3(
       m_dataArray->size().x, m_dataArray->size().y, m_dataArray->size().z);
 
-  mat3 S = mat3::scaling(1.f/bounds().size());
-  vec3 T = -bounds().min;
+  // Voxel space is the texture coordinate system. Its texels are centered:
+  // the data values, which are at origin + index * spacing, are half a texel
+  // inside of it.
+  mat3 S = mat3::scaling(1.f/(float3(m_dims)*m_spacing));
+  vec3 T = -(m_origin-m_spacing*0.5f);
   vfield.voxelSpaceTransform = mat4x3(S,T);
   setCellSize(min_element(m_spacing));
 
@@ -115,10 +118,8 @@ void StructuredRegularField::buildGrid()
         float3 P = m_origin + float3{xyz} * m_spacing;
         float3 texCoord = vfield.pointToVoxelSpace(P);
         float value = tex3D(vfield.asStructuredRegular.sampler, texCoord);
-        box3f cellBounds{
-          m_origin+float3{xyz}*m_spacing,
-          m_origin+float3{xyz+uint3{1}}*m_spacing
-        };
+        // a value contributes to the interpolant in all the cells around it
+        box3f cellBounds{P-m_spacing, P+m_spacing};
 
         rasterizeBox(vaccel,cellBounds,box1f(value),min_element(m_spacing / 2.f));
       }

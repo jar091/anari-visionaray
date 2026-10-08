@@ -23,6 +23,8 @@ void ISOSurface::commitParameters()
   Geometry::commitParameters();
   m_field = getParamObject<SpatialField>("field");
   m_isoValue = getParamObject<Array1D>("isovalue");
+  m_hasUniformIsoValue =
+      getParam("isovalue", ANARI_FLOAT32, &m_uniformIsoValue);
 }
 
 void ISOSurface::finalize()
@@ -33,10 +35,20 @@ void ISOSurface::finalize()
     return;
   }
 
-  if (!m_isoValue || m_isoValue->size() == 0) {
+  const bool hasIsoValueArray = m_isoValue && m_isoValue->size() > 0;
+  if (!hasIsoValueArray && !m_hasUniformIsoValue) {
     reportMessage(ANARI_SEVERITY_WARNING,
         "no ISO values provided to implicitISOSurface geometry");
     return;
+  }
+
+  // device copy of the ISO values (a single FLOAT32 or an array)
+  if (hasIsoValueArray) {
+    m_isoValues.resize(m_isoValue->size());
+    m_isoValues.reset(m_isoValue->beginAs<float>());
+  } else {
+    m_isoValues.resize(1);
+    m_isoValues[0] = m_uniformIsoValue;
   }
 
   if (!m_field->isValid()) {
@@ -54,8 +66,8 @@ void ISOSurface::finalize()
 
   m_isoSurface[0].field = m_field->visionaraySpatialField();
   m_isoSurface[0].bounds = m_field->bounds();
-  m_isoSurface[0].numValues = m_isoValue->size();
-  m_isoSurface[0].values = m_isoValue->beginAs<float>();
+  m_isoSurface[0].numValues = m_isoValues.size();
+  m_isoSurface[0].values = m_isoValues.devicePtr();
 
   vgeom.primitives.data = m_isoSurface.devicePtr();
   vgeom.primitives.len = m_isoSurface.size();
@@ -78,7 +90,7 @@ void ISOSurface::finalize()
 
 bool ISOSurface::isValid() const
 {
-  return m_field && m_field->isValid() && m_isoValue;
+  return m_field && m_field->isValid() && (m_isoValue || m_hasUniformIsoValue);
 }
 
 } // namespace visionaray

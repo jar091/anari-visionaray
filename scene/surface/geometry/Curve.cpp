@@ -1,11 +1,11 @@
 // Copyright 2023-2026 Stefan Zellmann
 // SPDX-License-Identifier: Apache-2.0
 
-#include "Cone.h"
+#include "Curve.h"
 
 namespace visionaray {
 
-Cone::Cone(VisionarayGlobalState *s)
+Curve::Curve(VisionarayGlobalState *s)
   : Geometry(s)
   , m_BVH(s)
   , m_index(this)
@@ -15,7 +15,7 @@ Cone::Cone(VisionarayGlobalState *s)
   vgeom.type = dco::Geometry::Cone;
 }
 
-void Cone::commitParameters()
+void Curve::commitParameters()
 {
   Geometry::commitParameters();
   m_index = getParamObject<Array1D>("primitive.index");
@@ -26,75 +26,56 @@ void Cone::commitParameters()
   m_vertexAttributes[2] = getParamObject<Array1D>("vertex.attribute2");
   m_vertexAttributes[3] = getParamObject<Array1D>("vertex.attribute3");
   m_vertexAttributes[4] = getParamObject<Array1D>("vertex.color");
+  m_globalRadius = getParam<float>("radius", 1.f);
 }
 
-void Cone::finalize()
+void Curve::finalize()
 {
   Geometry::finalize();
 
   if (!m_vertexPosition) {
     reportMessage(ANARI_SEVERITY_WARNING,
-        "missing required parameter 'vertex.position' on cone geometry");
+        "missing required parameter 'vertex.position' on curve geometry");
     return;
   }
 
-  if (!m_vertexRadius) {
-    reportMessage(ANARI_SEVERITY_WARNING,
-        "missing required parameter 'vertex.radius' on cone geometry");
-    return;
-  }
+  const size_t numVertices = m_vertexPosition->size();
+  const auto *vertices = m_vertexPosition->beginAs<float3>();
+  const float *radii = m_vertexRadius ? m_vertexRadius->beginAs<float>() : nullptr;
 
-  const auto numCones =
-      m_index ? m_index->size() : m_vertexPosition->size() / 2;
+  // Each primitive is the segment between the vertices index and index+1;
+  // without an index, consecutive vertex pairs form the segments.
+  const size_t numSegments = m_index ? m_index->size() : numVertices / 2;
 
-  m_cones.resize(numCones);
+  m_cones.resize(numSegments);
+  vindex.resize(numSegments);
 
-  if (m_index) {
-    const auto *indices = m_index->beginAs<uint2>();
-    const auto *vertices = m_vertexPosition->beginAs<float3>();
-    const auto *radii = m_vertexRadius->beginAs<float>();
-
-    for (size_t i=0; i<numCones; ++i) {
-      const auto &v1 = vertices[indices[i].x];
-      const auto &v2 = vertices[indices[i].y];
-      const float r1 = radii[indices[i].x];
-      const float r2 = radii[indices[i].y];
-      m_cones[i].prim_id = i;
-      m_cones[i].geom_id = -1;
-      m_cones[i].v1 = v1;
-      m_cones[i].v2 = v2;
-      m_cones[i].r1 = r1;
-      m_cones[i].r2 = r2;
+  for (size_t i=0; i<numSegments; ++i) {
+    const unsigned first = m_index ? m_index->beginAs<unsigned>()[i] : unsigned(i*2);
+    dco::Cone cone;
+    cone.prim_id = i;
+    cone.geom_id = -1;
+    if (size_t(first)+1 < numVertices) {
+      cone.v1 = vertices[first];
+      cone.v2 = vertices[first+1];
+      cone.r1 = radii ? radii[first] : m_globalRadius;
+      cone.r2 = radii ? radii[first+1] : m_globalRadius;
+      vindex[i] = uint2(first, first+1);
+    } else {
+      // invalid index: degenerate segment that cannot be hit
+      cone.v1 = cone.v2 = float3(0.f);
+      cone.r1 = cone.r2 = 0.f;
+      vindex[i] = uint2(0, 0);
     }
-  } else {
-    const auto *vertices = m_vertexPosition->beginAs<float3>();
-    const auto *radii = m_vertexRadius->beginAs<float>();
-
-    for (size_t i=0; i<numCones; ++i) {
-      const auto &v1 = vertices[i*2];
-      const auto &v2 = vertices[i*2+1];
-      const float r1 = radii[i*2];
-      const float r2 = radii[i*2+1];
-      m_cones[i].prim_id = i;
-      m_cones[i].geom_id = -1;
-      m_cones[i].v1 = v1;
-      m_cones[i].v2 = v2;
-      m_cones[i].r1 = r1;
-      m_cones[i].r2 = r2;
-    }
+    m_cones[i] = cone;
   }
 
   vgeom.primitives.data = m_cones.devicePtr();
   vgeom.primitives.len = m_cones.size();
 
-  if (m_index) {
-    vindex.resize(m_index->size());
-    vindex.reset(m_index->beginAs<uint2>());
-
-    vgeom.index.data = vindex.devicePtr();
-    vgeom.index.len = m_index->size();
-    vgeom.index.typeInfo = getInfo(m_index->elementType());
-  }
+  vgeom.index.data = vindex.devicePtr();
+  vgeom.index.len = vindex.size();
+  vgeom.index.typeInfo = getInfo(ANARI_UINT32_VEC2);
 
   for (int i = 0; i < 5; ++i ) {
     if (m_vertexAttributes[i]) {

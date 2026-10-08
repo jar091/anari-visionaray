@@ -500,7 +500,10 @@ inline bool sampleField(const SpatialField &sf, vec3 P, float &value, int &primI
     Ray ray;
     ray.ori = P;
     ray.dir = float3(1.f);
-    ray.tmin = ray.tmax = 0.f;
+    // point query: the wide BVH traversal only accepts hits with t < tmax,
+    // and the elements report t = 0
+    ray.tmin = 0.f;
+    ray.tmax = 1e-30f;
     default_intersector isect;
 
     if (sf.asUnstructured.elemBVH.num_nodes()) {
@@ -546,7 +549,10 @@ inline bool sampleField(const SpatialField &sf, vec3 P, float &value, int &primI
     Ray ray;
     ray.ori = P;
     ray.dir = float3(1.f);
-    ray.tmin = ray.tmax = 0.f;
+    // point query: the wide BVH traversal only accepts hits with t < tmax,
+    // and the elements report t = 0
+    ray.tmin = 0.f;
+    ray.tmax = 1e-30f;
 
     // sumValues+sumWeightedValues
     float basisPRD[2] = {0.f,0.f};

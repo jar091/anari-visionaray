@@ -29,8 +29,12 @@ struct ISOSurface : public Geometry
 
   helium::ChangeObserverPtr<SpatialField> m_field;
   helium::ChangeObserverPtr<Array1D> m_isoValue;
+  // 'isovalue' may also be a single FLOAT32
+  float m_uniformIsoValue{0.f};
+  bool m_hasUniformIsoValue{false};
 
   HostDeviceArray<dco::ISOSurface> m_isoSurface;
+  HostDeviceArray<float> m_isoValues;
 };
 
 } // namespace visionaray

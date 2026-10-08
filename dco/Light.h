@@ -223,7 +223,9 @@ struct Light
         const float3 L = position-refPoint;
 
         LightSample result;
-        result.Le = intensity(L);
+        // radiant intensity (W/sr) to irradiance at the reference point,
+        // like the point light
+        result.Le = intensity(L) / fmaxf(norm2(L), FLT_MIN);
         result.dir = L;
         result.Nl = normalize(
             float3(rng() * 2.f - 1.f, rng() * 2.f - 1.f, rng() * 2.f - 1.f));
@@ -368,6 +370,11 @@ struct Light
         ls.Le = radiance(ls.dir);
         ls.Nl = get_normal(hr, geometry());
         ls.pdf = 1.f/squad.S;
+
+        // one-sided lights emit nothing towards the other side
+        const float NdotD = dot(ls.Nl, ls.dir);
+        if ((side == Front && NdotD > 0.f) || (side == Back && NdotD < 0.f))
+          ls.Le = float3(0.f);
 
         return ls;
       }

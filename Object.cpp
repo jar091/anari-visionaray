@@ -12,7 +12,13 @@ namespace visionaray {
 
 Object::Object(ANARIDataType type, VisionarayGlobalState *s)
     : helium::BaseObject(type, s)
-{}
+{
+  // helium only commits objects whose parameters changed since the last
+  // commit, so an object committed without any parameter set (e.g. a default
+  // 'matte' material) would never be committed or finalized and stay
+  // invalid. Count creation as a change.
+  markParameterChanged();
+}
 
 void Object::commitParameters()
 {

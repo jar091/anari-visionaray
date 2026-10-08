@@ -260,6 +260,11 @@ void Frame::renderFrame()
     if (!isValid()) {
       reportMessage(
           ANARI_SEVERITY_ERROR, "skipping render of incomplete frame object");
+#if !defined(WITH_CUDA) && !defined(WITH_HIP)
+      // frameStart() was signalled above: without this, everything that waits
+      // for the frame to end (the next frame, object releases) blocks forever
+      state->syncContext->renderingSemaphore.frameEnd();
+#endif
       return;
     }
 

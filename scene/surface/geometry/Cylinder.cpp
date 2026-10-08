@@ -84,7 +84,7 @@ void Cylinder::finalize()
     vindex.resize(m_index->size());
     vindex.reset(m_index->beginAs<uint2>());
 
-    vgeom.index.data = m_index->begin();
+    vgeom.index.data = vindex.devicePtr();
     vgeom.index.len = m_index->size();
     vgeom.index.typeInfo = getInfo(m_index->elementType());
   }
