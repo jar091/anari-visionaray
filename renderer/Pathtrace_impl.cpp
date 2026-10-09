@@ -147,6 +147,15 @@ inline void shade(ScreenSample &ss, const Ray &ray, RayType rayType, unsigned wo
     aoCount = 0.f;
 
     if (!hitRec.hit) {
+      // A bounce ray that leaves the scene sees the ambient light. Only the
+      // non-diffuse share of the bounce counts: the diffuse lobe got the
+      // ambient light at the previous hit already (ambient occlusion term).
+      // Without this, mirrors and glossy metals reflect a black sky.
+      if (bounceID > 0) {
+        emission = rendererState.ambientColor * rendererState.ambientRadiance
+            * bsdfSample.nonDiffuse;
+        misWeightBSDF = 1.f;
+      }
       next.rayType = Miss;
       return;
     }
@@ -348,6 +357,7 @@ inline void shade(ScreenSample &ss, const Ray &ray, RayType rayType, unsigned wo
         bsdfSample.f = hitRec.asVolume.albedo * float3(1.f);//over 4 PI (cancels)
         bsdfSample.pdf = 1.f;//over 4 PI (cancels)
         bsdfSample.cosT = 1.f;
+        bsdfSample.nonDiffuse = 0.f;
       } else {
         bsdfSample = sampleMaterial(mat,
                                     onDevice,

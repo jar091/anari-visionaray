@@ -1280,6 +1280,11 @@ struct BSDFSample
   float pdf;
   float cosT;
   bool isSpecular;
+  // Share of this sample that is owed to the non-diffuse lobes (0: purely
+  // diffuse, 1: no diffuse lobe). The path tracer uses it to add the ambient
+  // light to rays that leave the scene: the diffuse lobe already receives the
+  // ambient light at the hit point (ambient occlusion term).
+  float nonDiffuse{0.f};
 };
 
 // Heitz 2018: Sampling the GGX Distribution of Visible Normals
@@ -1503,6 +1508,9 @@ inline BSDFSample samplePhysicallyBasedMaterial(const dco::Material &mat,
 
   result.pdf = pDiff*pdfDiff + pSpec*pdfSpec + pTrans*pdfTrans + pClear*pdfClear
                 + pSheen*pdfSheen;
+
+  result.nonDiffuse
+      = result.pdf > 0.f ? fmaxf(0.f, 1.f - pDiff*pdfDiff / result.pdf) : 0.f;
 
   result.f = evalPhysicallyBasedMaterial(mat,
                                          onDevice,
