@@ -43,6 +43,21 @@ void Camera::finalize()
   vcam.shutter = m_shutter;
 }
 
+void Camera::commitClipPlanes()
+{
+  // unset means: no clipping
+  m_near = getParam<float>("near", 0.f);
+  m_far = getParam<float>("far", FLT_MAX);
+}
+
+void Camera::finalizeClipPlanes()
+{
+  vcam.clipPos = m_pos;
+  vcam.clipDir = m_dir;
+  vcam.clipNear = m_near;
+  vcam.clipFar = m_far;
+}
+
 } // namespace visionaray
 
 VISIONARAY_ANARI_TYPEFOR_DEFINITION(visionaray::Camera *);

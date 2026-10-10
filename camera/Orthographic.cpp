@@ -15,12 +15,14 @@ void Orthographic::commitParameters()
   Camera::commitParameters();
   m_aspect = getParam<float>("aspect", 1.f);
   m_height = getParam<float>("height", 1.f);
+  commitClipPlanes();
 }
 
 void Orthographic::finalize()
 {
   Camera::finalize();
   vcam.asOrthoCam.init(m_pos, m_dir, m_up, m_aspect, m_height, m_imageRegion);
+  finalizeClipPlanes();
 }
 
 } // namespace visionaray

@@ -254,6 +254,15 @@ inline void shade(ScreenSample &ss, const Ray &ray, RayType rayType, unsigned wo
       color = getColor(mat, onDevice, attribs, hitRec.localHitPos, hitRec.primID);
 
       float4 tangent = getTangent(geom, hitRec.primID, hitRec.localHitPos, uv);
+      // Geometry without tangents (no 'vertex.tangent', quads): the tangent
+      // frame of a normal map follows from its texture coordinates.
+      if (!(length(tangent.xyz()) > 0.f) && length(sn) > 0.f
+          && mat.type == dco::Material::PhysicallyBased && onDevice.samplers
+          && dco::validHandle(mat.asPhysicallyBased.normal.samplerID)) {
+        tangent = getTangentFromUV(geom, inst,
+            onDevice.samplers[mat.asPhysicallyBased.normal.samplerID].inAttribute,
+            hitRec.primID, sn);
+      }
       if (length(sn) > 0.f && length(tangent.xyz()) > 0.f) {
         tng = normalize(tangent.xyz());
         btng = normalize(cross(sn, tng)) * tangent.w;
@@ -356,6 +365,7 @@ inline void shade(ScreenSample &ss, const Ray &ray, RayType rayType, unsigned wo
         bsdfSample.dir = uniform_sample_sphere(ss.random(), ss.random());
         bsdfSample.f = hitRec.asVolume.albedo * float3(1.f);//over 4 PI (cancels)
         bsdfSample.pdf = 1.f;//over 4 PI (cancels)
+        bsdfSample.isDiffuse = false;
         bsdfSample.cosT = 1.f;
         bsdfSample.nonDiffuse = 0.f;
       } else {
@@ -564,6 +574,7 @@ void VisionarayRendererPathtrace::renderFrame(DevicePointer<DeviceObjectRegistry
             RayType rayType = Radiance;
             float3 throughput{1.f};
             float3 intensity{0.f};
+            int diffuseBounces = 0;
             for (unsigned passID=0, bounceID=0;true;++passID) {
               ray = clipRay(ray, rendererState.clipPlanes, rendererState.numClipPlanes);
               bool shadow = rayType == Shadow || rayType == AO;
@@ -588,12 +599,25 @@ void VisionarayRendererPathtrace::renderFrame(DevicePointer<DeviceObjectRegistry
                 float3 direct = (shadeState.shadedColor * shadeState.visibility.light);
                 float3 ambient= (shadeState.baseColor * rendererState.ambientColor
                         * rendererState.ambientRadiance * shadeState.visibility.ao);
-                intensity += throughput * shadeState.misWeightNEE * direct;
-                intensity += throughput * shadeState.misWeightBSDF * shadeState.emission;
-                intensity += throughput * ambient;
+                // Light which arrives at this hit (bounceID bounces after the
+                // camera) and the emission of the hit itself, which is light
+                // for the hit before it: each clamped by itself.
+                const float clampD = rendererState.clampDirectSum;
+                const float clampI = rendererState.clampIndirectSum;
+                intensity += clampContribution(
+                    throughput * shadeState.misWeightNEE * direct, (int)bounceID, clampD, clampI);
+                intensity += clampContribution(
+                    throughput * shadeState.misWeightBSDF * shadeState.emission, (int)bounceID - 1, clampD, clampI);
+                intensity += clampContribution(throughput * ambient, (int)bounceID, clampD, clampI);
                 throughput *= shadeState.bsdfSample.f
                     * shadeState.bsdfSample.cosT * safe_rcp(shadeState.bsdfSample.pdf);
                 bounceID++;
+                // The next bounce is a diffuse one: it ends the path when the
+                // limit of diffuse bounces is reached.
+                if (rayType == Radiance && shadeState.bsdfSample.isDiffuse
+                    && rendererState.maxDiffuseBounce >= 0
+                    && ++diffuseBounces > rendererState.maxDiffuseBounce)
+                  break;
               }
 
               float tpmax = max_element(throughput);

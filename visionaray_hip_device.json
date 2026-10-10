@@ -76,6 +76,190 @@
          "description": "total maximum number of light bounces; 0 gives direct lighting only"
         },
         {
+         "name": "maxDiffuseBounce",
+         "types": [
+          "ANARI_INT32"
+         ],
+         "tags": [],
+         "minimum": 0,
+         "description": "maximum number of diffuse bounces of a path after the camera hit, counted as in Cycles; unset: no limit"
+        },
+        {
+         "name": "clampDirect",
+         "types": [
+          "ANARI_FLOAT32"
+         ],
+         "tags": [],
+         "minimum": 0.0,
+         "description": "clamp of the light which arrives at the camera hit: one contribution to a path is scaled to R+G+B <= 3 * value; 0 or unset: no clamp"
+        },
+        {
+         "name": "clampIndirect",
+         "types": [
+          "ANARI_FLOAT32"
+         ],
+         "tags": [],
+         "minimum": 0.0,
+         "description": "clamp of the light which arrives at later hits of a path: one contribution to a path is scaled to R+G+B <= 3 * value; 0 or unset: no clamp"
+        },
+        {
+          "name": "mode",
+          "types": [
+            "ANARI_STRING"
+          ],
+          "tags": [],
+          "default": "default",
+          "values": [
+            "default",
+            "primitiveId",
+            "worldPosition",
+            "objectPosition",
+            "Ng",
+            "Ns",
+            "tangent",
+            "bitangent",
+            "albedo",
+            "motionVec",
+            "geometry.attribute0",
+            "geometry.attribute1",
+            "geometry.attribute2",
+            "geometry.attribute3",
+            "geometry.color"
+          ],
+          "description": "visualization modes"
+        },
+        {
+          "name": "heatMapEnabled",
+          "types": [
+            "ANARI_BOOL"
+          ],
+          "tags": [],
+          "default": false,
+          "description": "heat map visualizating clock cycles per pixel"
+        },
+        {
+          "name": "heatMapScale",
+          "types": [
+            "ANARI_FLOAT32"
+          ],
+          "tags": [],
+          "default": 0.1,
+          "description": "heat map scaling factor"
+        },
+        {
+          "name": "taa",
+          "types": [
+            "ANARI_BOOL"
+          ],
+          "tags": [],
+          "default": false,
+          "description": "Toggle TAA and accumulation"
+        },
+        {
+          "name": "taaAlpha",
+          "types": [
+            "ANARI_FLOAT32"
+          ],
+          "tags": [],
+          "default": 0.3,
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "TAA weighting factor"
+        },
+        {
+          "name": "pixelSamples",
+          "types": [
+            "ANARI_INT32"
+          ],
+          "tags": [],
+          "default": 1,
+          "minimum": 1,
+          "description": "samples per-pixel"
+        },
+        {
+          "name": "sampleLimit",
+          "types": ["ANARI_INT32"],
+          "tags": [],
+          "default": 1024,
+          "minimum": 0,
+          "description": "stop refining the frame after this number of samples"
+        },
+        {
+          "name": "ambientSamples",
+          "types": [
+            "ANARI_INT32"
+          ],
+          "tags": [],
+          "default": 1,
+          "minimum": 0,
+          "description": "AO samples per-pixel, per-frame"
+        },
+        {
+          "name": "ambientOcclusionDistance",
+          "types": ["ANARI_FLOAT32"],
+          "tags": [],
+          "default": 1e20,
+          "minimum": 0,
+          "description": "ambient occlusion distance"
+        }
+      ]
+    },
+    {
+      "type": "ANARI_RENDERER",
+      "name": "default",
+      "parameters": [
+        {
+          "name": "clipPlane",
+          "types": [
+            "ANARI_ARRAY1D"
+          ],
+          "elementType" : [
+            "ANARI_FLOAT32_VEC4"
+          ],
+          "tags": [],
+          "default": [],
+          "description": "list of clip planes applied to surfaces and volumes"
+        },
+        {
+         "name": "maxBounce",
+         "types": [
+          "ANARI_INT32"
+         ],
+         "tags": [],
+         "default": [
+          7
+         ],
+         "minimum": 0,
+         "description": "total maximum number of light bounces; 0 gives direct lighting only"
+        },
+        {
+         "name": "maxDiffuseBounce",
+         "types": [
+          "ANARI_INT32"
+         ],
+         "tags": [],
+         "minimum": 0,
+         "description": "maximum number of diffuse bounces of a path after the camera hit, counted as in Cycles; unset: no limit"
+        },
+        {
+         "name": "clampDirect",
+         "types": [
+          "ANARI_FLOAT32"
+         ],
+         "tags": [],
+         "minimum": 0.0,
+         "description": "clamp of the light which arrives at the camera hit: one contribution to a path is scaled to R+G+B <= 3 * value; 0 or unset: no clamp"
+        },
+        {
+         "name": "clampIndirect",
+         "types": [
+          "ANARI_FLOAT32"
+         ],
+         "tags": [],
+         "minimum": 0.0,
+         "description": "clamp of the light which arrives at later hits of a path: one contribution to a path is scaled to R+G+B <= 3 * value; 0 or unset: no clamp"
+        },
+        {
           "name": "mode",
           "types": [
             "ANARI_STRING"

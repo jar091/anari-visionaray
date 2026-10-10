@@ -48,6 +48,12 @@ struct RendererState
 #endif
   RenderMode renderMode{RenderMode::Default};
   int maxBounce{7};
+  // Diffuse bounces of a path after the camera hit, as in Cycles; < 0: no limit
+  int maxDiffuseBounce{-1};
+  // Limits of R+G+B of one light contribution to a path: light which arrives
+  // at the camera hit (direct) and at later hits (indirect); <= 0: no clamp
+  float clampDirectSum{0.f};
+  float clampIndirectSum{0.f};
   float4 *clipPlanes{nullptr};
   unsigned numClipPlanes{0};
   int sampleLimit{1024};
@@ -715,6 +721,56 @@ inline float getIOR(const dco::Material &mat)
   }
 }
 
+// Tangent of a triangle (also of the two triangles of a quad) from its texture
+// coordinates in 'attrib': dP/du orthogonalized against N, with the handedness
+// of the coordinates in w. For geometry without tangent array, so normal maps
+// work there too; zero if the coordinates are missing or degenerate.
+VSNRAY_FUNC
+inline vec4 getTangentFromUV(const dco::Geometry &geom,
+                             const dco::Instance &inst,
+                             dco::Attribute attrib,
+                             unsigned primID,
+                             const vec3 N)
+{
+  if (geom.type != dco::Geometry::Triangle && geom.type != dco::Geometry::Quad)
+    return vec4(0.f);
+  if (attrib == dco::Attribute::None || (int)attrib >= 5)
+    return vec4(0.f);
+
+  auto tri = geom.as<dco::Triangle>(primID);
+  const vec4 a0 = getAttribute(geom, inst, attrib, primID, vec2(0.f, 0.f));
+  const vec4 a1 = getAttribute(geom, inst, attrib, primID, vec2(1.f, 0.f));
+  const vec4 a2 = getAttribute(geom, inst, attrib, primID, vec2(0.f, 1.f));
+  const vec2 d1 = a1.xy() - a0.xy();
+  const vec2 d2 = a2.xy() - a0.xy();
+  const float det = d1.x * d2.y - d2.x * d1.y;
+  if (fabsf(det) < 1e-20f)
+    return vec4(0.f);
+
+  vec3 T = (tri.e1 * d2.y - tri.e2 * d1.y) / det;
+  const vec3 dPdv = (tri.e2 * d1.x - tri.e1 * d2.x) / det;
+  T = T - N * dot(N, T);
+  if (!(length(T) > 0.f))
+    return vec4(0.f);
+  T = normalize(T);
+  const float handedness = dot(cross(N, T), dPdv) < 0.f ? -1.f : 1.f;
+  return vec4(T, handedness);
+}
+
+// Clamp of one light contribution to a path, as Cycles does it: the sum R+G+B
+// is limited and the color keeps its hue. 'lightBounce' is the number of
+// bounces before the hit which receives the light: 0 (and the -1 of emission
+// which the camera sees itself) is direct light, the rest indirect.
+VSNRAY_FUNC
+inline float3 clampContribution(float3 c, int lightBounce, float directSum, float indirectSum)
+{
+  const float limit = lightBounce > 0 ? indirectSum : directSum;
+  if (!(limit > 0.f))
+    return c;
+  const float sum = fabsf(c.x) + fabsf(c.y) + fabsf(c.z);
+  return sum > limit ? c * (limit / sum) : c;
+}
+
 VSNRAY_FUNC
 inline vec3 getPerturbedNormal(const dco::Material &mat,
                                const DeviceObjectRegistry &onDevice,
@@ -1280,6 +1336,8 @@ struct BSDFSample
   float pdf;
   float cosT;
   bool isSpecular;
+  // Sampled from a diffuse lobe (for the diffuse bounce limit of the renderer)
+  bool isDiffuse{false};
   // Share of this sample that is owed to the non-diffuse lobes (0: purely
   // diffuse, 1: no diffuse lobe). The path tracer uses it to add the ambient
   // light to rays that leave the scene: the diffuse lobe already receives the
@@ -1439,6 +1497,7 @@ inline BSDFSample samplePhysicallyBasedMaterial(const dco::Material &mat,
   result.isSpecular = false;
   float pdfSheen = 0.f;
   if (lobe < pDiff) {
+    result.isDiffuse = true;
     auto sp = cosine_sample_hemisphere(rnd(),rnd());
     result.dir = normalize(sp.x*u+sp.y*v+sp.z*w);
   } else if (lobe < pDiff + pSpec) {
@@ -1546,6 +1605,7 @@ inline BSDFSample sampleMaterial(const dco::Material &mat,
                                      : normalize(vec3(0.f,w.z,-w.y));
     auto u = cross(v,w);
     auto sp = cosine_sample_hemisphere(rnd(), rnd());
+    result.isDiffuse = true;
     result.dir = normalize(sp.x*u+sp.y*v+sp.z*w);
     result.pdf = fmaxf(0.f,dot(Ns,result.dir)) * constants::inv_pi<float>();
     result.f = evalMatteMaterial(mat,

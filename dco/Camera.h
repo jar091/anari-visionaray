@@ -19,6 +19,13 @@ struct Camera
   Type type;
   unsigned camID;
   box1 shutter;
+  // Clip planes of the camera rays (pinhole and ortho cameras only). The
+  // planes are perpendicular to clipDir, the distances are measured along
+  // clipDir from clipPos (not along the ray); 0 and FLT_MAX: no clipping
+  float3 clipPos;
+  float3 clipDir;
+  float clipNear;
+  float clipFar;
   thin_lens_camera asPinholeCam;
   union {
     matrix_camera asMatrixCam;
@@ -113,9 +120,36 @@ struct Camera
     else if (type == Matrix)
       ray = asMatrixCam.primary_ray(Ray{}, x, y, width, height);
 
+    if (type == Pinhole || type == Ortho)
+      clipPrimaryRay(ray);
+
     ray.time = lerp_r(shutter.min, shutter.max, rng());
 
     return ray;
+  }
+
+  // Restrict a camera ray to the slab between the near and far clip planes.
+  // Only the ray interval changes, so hit distances remain relative to the
+  // ray origin (camera position resp. lens sample); rays spawned later on
+  // (shadow, bounce) are not clipped
+  VSNRAY_FUNC
+  inline void clipPrimaryRay(Ray &ray) const
+  {
+    const bool hasNear = clipNear > 0.f;
+    const bool hasFar = clipFar < FLT_MAX;
+    if (!hasNear && !hasFar)
+      return;
+
+    const float cosAxis = dot(ray.dir, clipDir);
+    if (cosAxis > 1e-6f) {
+      const float axisDist = dot(ray.ori - clipPos, clipDir);
+      if (hasNear)
+        ray.tmin = max(ray.tmin, (clipNear - axisDist) / cosAxis);
+      if (hasFar)
+        ray.tmax = min(ray.tmax, (clipFar - axisDist) / cosAxis);
+    } else {
+      ray.tmax = -1.f; // ray never enters the slab
+    }
   }
 };
 
@@ -127,6 +161,8 @@ inline Camera createCamera()
   cam.type = Camera::Unknown;
   cam.camID = UINT_MAX;
   cam.shutter = {0.5f, 0.5f};
+  cam.clipNear = 0.f;
+  cam.clipFar = FLT_MAX;
   return cam;
 }
 

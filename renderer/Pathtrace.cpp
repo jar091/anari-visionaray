@@ -17,6 +17,11 @@ void Pathtrace::commitParameters()
 {
   Renderer::commitParameters();
   m_maxBounce = clamp(getParam<int>("maxBounce", 7), 0, 256);
+  int maxDiffuseBounce = -1;
+  m_maxDiffuseBounce = getParam("maxDiffuseBounce", ANARI_INT32, &maxDiffuseBounce)
+      ? clamp(maxDiffuseBounce, 0, 256) : -1;
+  m_clampDirect = fmaxf(getParam<float>("clampDirect", 0.f), 0.f);
+  m_clampIndirect = fmaxf(getParam<float>("clampIndirect", 0.f), 0.f);
   m_occlusionDistance = getParam<float>("ambientOcclusionDistance", 1e20f);
   m_ambientSamples = clamp(getParam<int>("ambientSamples", 1), 0, 256);
   m_pixelSamples = clamp(getParam<int>("pixelSamples", 1), 1, 256);
@@ -34,6 +39,10 @@ void Pathtrace::finalize()
     ambientSamples = 0;
 
   vrend.rendererState.maxBounce = m_maxBounce;
+  vrend.rendererState.maxDiffuseBounce = m_maxDiffuseBounce;
+  // as in Cycles the value limits the mean of the channels
+  vrend.rendererState.clampDirectSum = 3.f * m_clampDirect;
+  vrend.rendererState.clampIndirectSum = 3.f * m_clampIndirect;
   vrend.rendererState.occlusionDistance = m_occlusionDistance;
   vrend.rendererState.ambientSamples = ambientSamples;
   vrend.rendererState.pixelSamples = m_pixelSamples;

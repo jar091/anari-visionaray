@@ -28,6 +28,13 @@ struct Camera : public Object
   vec3f m_up;
   box2f m_imageRegion;
   box1f m_shutter;
+  // clip planes of camera rays, used by the perspective and orthographic
+  // cameras (see dco::Camera::clipPrimaryRay)
+  float m_near{0.f};
+  float m_far{FLT_MAX};
+
+  void commitClipPlanes();
+  void finalizeClipPlanes();
 };
 
 } // namespace visionaray

@@ -16,6 +16,10 @@ struct Pathtrace : public Renderer
   void finalize() override;
  private:
   int m_maxBounce{7};
+  // Cycles-named limits and clamps; -1 and 0: not set
+  int m_maxDiffuseBounce{-1};
+  float m_clampDirect{0.f};
+  float m_clampIndirect{0.f};
   float m_occlusionDistance{1e20f};
   int m_ambientSamples{1};
   int m_pixelSamples{1};

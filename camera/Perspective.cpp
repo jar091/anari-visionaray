@@ -20,6 +20,7 @@ void Perspective::commitParameters()
   m_aspect = getParam<float>("aspect", 1.f);
   m_apertureRadius = getParam<float>("apertureRadius", 0.f);
   m_focusDistance = getParam<float>("focusDistance", 1.f);
+  commitClipPlanes();
 
   // float2 imgPlaneSize;
   // imgPlaneSize.y = 2.f * tanf(0.5f * fovy);
@@ -41,6 +42,7 @@ void Perspective::finalize()
   vcam.asPinholeCam.set_image_region(m_imageRegion);
   vcam.asPinholeCam.set_lens_radius(m_apertureRadius);
   vcam.asPinholeCam.set_focal_distance(m_focusDistance);
+  finalizeClipPlanes();
 }
 
 } // namespace visionaray
