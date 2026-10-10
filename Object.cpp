@@ -17,7 +17,8 @@ Object::Object(ANARIDataType type, VisionarayGlobalState *s)
   // commit, so an object committed without any parameter set (e.g. a default
   // 'matte' material) would never be committed or finalized and stay
   // invalid. Count creation as a change.
-  markParameterChanged();
+  helium::BaseObject::markParameterChanged();
+  s->commitBuffer.addObjectToCommit(this);
 }
 
 void Object::commitParameters()
